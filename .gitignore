@@ -1,0 +1,4 @@
+node_modules
+dist/
+Daily_Planner_BE/
+.env
