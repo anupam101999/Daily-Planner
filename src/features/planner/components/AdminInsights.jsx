@@ -1,16 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, AlertTriangle, ArrowLeft, CheckCircle2, Clock3, RefreshCw, ShieldCheck, Target, TimerReset, Users } from "lucide-react";
-import { getAdminInsights } from "../../../services/adminStore";
+import { Activity, AlertTriangle, ArrowLeft, CheckCircle2, Clock3, Play, RefreshCw, ServerCog, ShieldCheck, Target, TimerReset, Users } from "lucide-react";
+import { getAdminBatches, getAdminInsights, runAdminBatch } from "../../../services/adminStore";
 
 export function AdminInsights({ adminUserId, onClose }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [batches, setBatches] = useState([]);
+  const [runningBatch, setRunningBatch] = useState("");
+  const [batchMessage, setBatchMessage] = useState("");
 
   const loadInsights = useCallback(async () => {
     setLoading(true);
     try {
-      setData(await getAdminInsights(adminUserId));
+      const [insights, batchData] = await Promise.all([getAdminInsights(adminUserId), getAdminBatches()]);
+      setData(insights);
+      setBatches(batchData.batches || []);
       setError("");
     } catch (requestError) {
       setError(requestError.message);
@@ -20,6 +25,23 @@ export function AdminInsights({ adminUserId, onClose }) {
   }, [adminUserId]);
 
   useEffect(() => { void loadInsights(); }, [loadInsights]);
+
+  async function handleRunBatch(batch) {
+    setRunningBatch(batch.id);
+    setBatchMessage("");
+    try {
+      const response = await runAdminBatch(batch.id);
+      setBatches(response.batches || []);
+      setBatchMessage(`${batch.name} completed successfully.`);
+      setData(await getAdminInsights(adminUserId));
+    } catch (requestError) {
+      setBatchMessage(requestError.message);
+      const refreshed = await getAdminBatches().catch(() => null);
+      if (refreshed) setBatches(refreshed.batches || []);
+    } finally {
+      setRunningBatch("");
+    }
+  }
 
   const maxTrend = useMemo(() => Math.max(1, ...(data?.trend || []).map((day) => Math.max(day.createdTasks, day.completedTasks))), [data]);
 
@@ -38,13 +60,14 @@ export function AdminInsights({ adminUserId, onClose }) {
       </header>
 
       {error ? <div className="status-banner">{error}</div> : null}
+      {batchMessage ? <div className="status-banner">{batchMessage}</div> : null}
       {loading && !data ? <div className="admin-insights-loading">Loading admin insights...</div> : null}
-      {data ? <AdminReport data={data} maxTrend={maxTrend} /> : null}
+      {data ? <AdminReport data={data} maxTrend={maxTrend} batches={batches} runningBatch={runningBatch} onRunBatch={handleRunBatch} /> : null}
     </section>
   );
 }
 
-function AdminReport({ data, maxTrend }) {
+function AdminReport({ data, maxTrend, batches, runningBatch, onRunBatch }) {
   const { summary } = data;
   return (
     <>
@@ -55,6 +78,8 @@ function AdminReport({ data, maxTrend }) {
         <Metric icon={TimerReset} label="Focused time" value={formatSeconds(summary.focusedSeconds)} detail={`${summary.pomodoroCount} Pomodoro sessions`} />
         <Metric icon={AlertTriangle} label="Backlog" value={summary.backlogTasks} detail="tasks need review" warning={summary.backlogTasks > 0} />
       </div>
+
+      <BatchOperations batches={batches} runningBatch={runningBatch} onRun={onRunBatch} />
 
       <div className="admin-report-grid">
         <article className="admin-report-card admin-trend-card">
@@ -100,6 +125,25 @@ function AdminReport({ data, maxTrend }) {
   );
 }
 
+function BatchOperations({ batches, runningBatch, onRun }) {
+  return (
+    <article className="admin-report-card admin-batch-card">
+      <div className="admin-card-title"><ServerCog size={19} /><div><h3>Batch operations</h3><p>Manual controls for scheduled system jobs. Admin access is enforced by the API.</p></div></div>
+      <div className="admin-batch-grid">
+        {batches.map((batch) => {
+          const running = runningBatch === batch.id || batch.running;
+          return (
+            <section className="admin-batch-row" key={batch.id}>
+              <div><strong>{batch.name}</strong><p>{batch.description}</p><small>{batch.schedule} · Scheduler {batch.schedulerEnabled ? "enabled" : "disabled"}</small>{batch.lastCompletedAt ? <small>Last completed {formatDateTime(batch.lastCompletedAt)}</small> : null}{batch.lastError ? <small className="batch-error">Last error: {batch.lastError}</small> : null}</div>
+              <button type="button" disabled={running || Boolean(runningBatch)} onClick={() => onRun(batch)}>{running ? <RefreshCw className="spin" size={16} /> : <Play size={16} />}{running ? "Running..." : "Run now"}</button>
+            </section>
+          );
+        })}
+      </div>
+    </article>
+  );
+}
+
 function Metric({ icon: Icon, label, value, detail, warning = false }) {
   return <article className={`admin-summary-card ${warning ? "is-warning" : ""}`}><Icon size={20} /><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
@@ -111,4 +155,8 @@ function formatMinutes(minutes) {
 
 function formatSeconds(seconds) {
   return formatMinutes(Math.round(Number(seconds || 0) / 60));
+}
+
+function formatDateTime(value) {
+  return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
