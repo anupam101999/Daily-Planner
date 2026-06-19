@@ -272,6 +272,7 @@ p {
 .admin-batch-row p { margin: 4px 0 7px; color: var(--ui-muted); }
 .admin-batch-row small { display: block; margin-top: 3px; color: var(--ui-muted); }
 .admin-batch-row .batch-error { color: var(--ui-danger); }
+.admin-batch-row .batch-warning { color: var(--ui-warning); }
 .admin-batch-row button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 112px; }
 .admin-card-title { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
 .admin-card-title > svg { color: var(--ui-brand); margin-top: 2px; }

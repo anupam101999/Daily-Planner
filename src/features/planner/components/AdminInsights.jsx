@@ -134,7 +134,7 @@ function BatchOperations({ batches, runningBatch, onRun }) {
           const running = runningBatch === batch.id || batch.running;
           return (
             <section className="admin-batch-row" key={batch.id}>
-              <div><strong>{batch.name}</strong><p>{batch.description}</p><small>{batch.schedule} · Scheduler {batch.schedulerEnabled ? "enabled" : "disabled"}</small>{batch.lastCompletedAt ? <small>Last completed {formatDateTime(batch.lastCompletedAt)}</small> : null}{batch.lastError ? <small className="batch-error">Last error: {batch.lastError}</small> : null}</div>
+              <div><strong>{batch.name}</strong><p>{batch.description}</p><small>{batch.schedule} · Scheduler {batch.schedulerEnabled ? "enabled" : "disabled"}</small>{batch.lastCompletedAt ? <small>Last completed {formatDateTime(batch.lastCompletedAt)}</small> : null}{batch.lastWarning ? <small className="batch-warning">Partial source warning: {batch.lastWarning}</small> : null}{batch.lastError ? <small className="batch-error">Last error: {batch.lastError}</small> : null}</div>
               <button type="button" disabled={running || Boolean(runningBatch)} onClick={() => onRun(batch)}>{running ? <RefreshCw className="spin" size={16} /> : <Play size={16} />}{running ? "Running..." : "Run now"}</button>
             </section>
           );
